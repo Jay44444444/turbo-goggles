@@ -94,6 +94,16 @@ with st.sidebar:
     st.title("🔮 Crisis Ops v14")
     st.markdown("---")
     provider = st.selectbox("🤖 AI 모델", ["Mistral AI", "Google Gemini", "OpenAI (GPT-4o)"])
+
+    # 👇 [추가] 미스트랄 선택 시 발급 링크 버튼 표시
+    if provider == "Mistral AI":
+        st.link_button(
+            label="🔑 Mistral API Key 발급받기", 
+            url="https://docs.google.com/presentation/d/1xTUWrusNROIonDWL5hEWpybNCqo2W8kYHr4czDPWnok/edit?slide=id.p#slide=id.p",
+            help="클릭하면 발급 가이드 페이지로 이동합니다."
+        )
+    
+    # ... (API Key 입력창 코드) ...
     api_key = st.text_input(f"{provider} API Key", type="password", placeholder="sk-...")
     
     st.markdown("---")
