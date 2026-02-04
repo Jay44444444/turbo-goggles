@@ -8,7 +8,7 @@ import google.generativeai as genai
 from mistralai import Mistral
 
 # --- 페이지 설정 ---
-st.set_page_config(page_title="위기대응 시뮬레이터 v14", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="위기대응 시뮬레이터 v15", page_icon="🛡️", layout="wide")
 
 # --- CSS ---
 st.markdown("""
@@ -29,7 +29,7 @@ st.markdown("""
 # --- 상태 초기화 ---
 if 'scenario_data' not in st.session_state: st.session_state.scenario_data = {}
 if 'evaluation_result' not in st.session_state: st.session_state.evaluation_result = None
-if 'mentor_solution' not in st.session_state: st.session_state.mentor_solution = None # 멘토 답안 저장용
+if 'mentor_solution' not in st.session_state: st.session_state.mentor_solution = None 
 if 'history' not in st.session_state: st.session_state.history = []
 
 # --- 텍스트 정제 함수 ---
@@ -49,7 +49,7 @@ def call_ai_brain(provider, api_key, system_role, user_prompt, temperature=0.5):
                 model="gpt-4o", 
                 messages=[{"role": "system", "content": system_role}, {"role": "user", "content": user_prompt}],
                 temperature=temperature,
-                max_tokens=2000 # 토큰 수 넉넉하게
+                max_tokens=2000 
             )
             return response.choices[0].message.content
 
@@ -91,19 +91,18 @@ def get_risk_color(score):
 
 # --- 사이드바 ---
 with st.sidebar:
-    st.title("🔮 Crisis Ops v14")
+    st.title("🔮 Crisis Ops v15")
     st.markdown("---")
     provider = st.selectbox("🤖 AI 모델", ["Mistral AI", "Google Gemini", "OpenAI (GPT-4o)"])
-
-    # 👇 [추가] 미스트랄 선택 시 발급 링크 버튼 표시
+    
+    # 미스트랄 키 발급 버튼
     if provider == "Mistral AI":
         st.link_button(
             label="🔑 Mistral API Key 발급받기", 
             url="https://docs.google.com/presentation/d/1xTUWrusNROIonDWL5hEWpybNCqo2W8kYHr4czDPWnok/edit?slide=id.p#slide=id.p",
             help="클릭하면 발급 가이드 페이지로 이동합니다."
         )
-    
-    # ... (API Key 입력창 코드) ...
+
     api_key = st.text_input(f"{provider} API Key", type="password", placeholder="sk-...")
     
     st.markdown("---")
@@ -119,14 +118,9 @@ with st.sidebar:
 
     st.markdown("---")
     
-    # [수정] 엑셀 다운로드 (데이터 컬럼 정리)
     if st.session_state.history:
         st.markdown("### 🏆 시뮬레이션 기록")
         df = pd.DataFrame(st.session_state.history)
-        
-        # 컬럼 순서 및 이름 보기 좋게 정렬 (옵션)
-        # df = df[['Genre', 'Score', 'Risk', 'Crisis', 'User_Action', 'User_Notice', 'Feedback']]
-        
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             df.to_excel(writer, index=False, sheet_name='Log')
@@ -217,13 +211,14 @@ if not st.session_state.scenario_data:
                 
                 st.session_state.scenario_data = {"public": public_text, "cause": secret_text, "genre": genre}
                 st.session_state.evaluation_result = None
-                st.session_state.mentor_solution = None # 초기화
+                st.session_state.mentor_solution = None 
                 st.rerun()
 
 # [Phase 2 & 3] 대응 및 평가
 else:
     left_col, right_col = st.columns(2, gap="large")
     
+    # === [좌측 패널]: 상황판 전용 ===
     with left_col:
         st.subheader("📡 상황 모니터링")
         st.error("🔥 **[Public] 현재 상황**")
@@ -233,7 +228,37 @@ else:
             st.warning("🤫 **[Secret] 내부 진실**")
             st.markdown(st.session_state.scenario_data['cause'])
         
-        # [결과 리포트]
+    # === [우측 패널]: 작전 통제실 & 결과 ===
+    with right_col:
+        # 1. 입력 폼 (결과가 나오면 자동으로 접힘)
+        # 결과가 있냐? (True/False)
+        has_result = st.session_state.evaluation_result is not None or st.session_state.mentor_solution is not None
+        
+        # 결과가 없으면(False) -> expanded=True (열림)
+        # 결과가 있으면(True) -> expanded=False (닫힘)
+        with st.expander("⌨️ 작전 통제실 (클릭하여 열기/접기)", expanded=not has_result):
+            with st.form("response_form"):
+                st.markdown("**1. 내부 조치 (Internal Action)**")
+                action = st.text_area("action", height=100, label_visibility="collapsed", placeholder="예: 개발팀에 원복 요청...")
+                
+                st.markdown("**2. 유저 공지사항 (Public Notice)**")
+                notice = st.text_area("notice", height=250, label_visibility="collapsed", placeholder="[공지] 사과드립니다...")
+                
+                c_sub, c_give = st.columns(2)
+                with c_sub:
+                    submit = st.form_submit_button("결재 및 미래 예측 (SIMULATE)", type="primary", use_container_width=True)
+                with c_give:
+                    give_up = st.form_submit_button("🏃‍♂️ 사표 쓰고 탈주하기 (멘토 찬스)", use_container_width=True)
+            
+            if st.button("🔄 초기화 (New Scenario)", use_container_width=True):
+                st.session_state.scenario_data = {}
+                st.session_state.evaluation_result = None
+                st.session_state.mentor_solution = None
+                st.rerun()
+
+        # 2. 결과 출력 (폼 아래에 배치)
+        
+        # [Case A] 평가 결과
         if st.session_state.evaluation_result:
             res = st.session_state.evaluation_result
             cleaned_feedback = clean_ai_response(res.get('text', ''))
@@ -241,10 +266,12 @@ else:
             if score >= 80: result_box = st.success
             elif score >= 50: result_box = st.warning
             else: result_box = st.error
+            
+            st.markdown("---")
             result_box(f"📊 **대응 평가 결과** (점수: {score}점)")
             st.markdown(cleaned_feedback)
 
-        # [멘토 솔루션 (탈주하기 버튼 결과)]
+        # [Case B] 멘토 솔루션
         if st.session_state.mentor_solution:
             st.markdown("---")
             st.info("💡 **멘토의 모범 답안 (Cheat Sheet)**")
@@ -254,42 +281,15 @@ else:
                 <div class="content-text">{st.session_state.mentor_solution}</div>
             </div>
             """, unsafe_allow_html=True)
-
-            # === [좌측] 상황판 및 결과 ===
-            with left_col:
-                # ... (상황판, 시크릿 박스, 평가 결과, 멘토 솔루션 코드 생략) ...
-
-                # [기존 코드 아래에 추가] 
-                # 평가 결과나 멘토 답안이 화면에 떠 있을 때만 주의 문구 표시
-                if st.session_state.evaluation_result or st.session_state.mentor_solution:
-                    st.write("") # 약간의 여백
-                    st.info("ℹ️ **Notice:** AI의 평가와 제안은 참고용일 뿐 정답이 아닙니다. 실제 업무 적용 시에는 회사의 톤앤매너와 내부 규정에 따라 달라질 수 있으므로, 반드시 동료 및 유관부서와 논의하시기 바랍니다.")
-
-    with right_col:
-        st.subheader("⌨️ 작전 통제실")
-        
-        with st.form("response_form"):
-            st.markdown("**1. 내부 조치 (Internal Action)**")
-            action = st.text_area("action", height=100, label_visibility="collapsed", placeholder="예: 개발팀에 원복 요청...")
             
-            st.markdown("**2. 유저 공지사항 (Public Notice)**")
-            notice = st.text_area("notice", height=250, label_visibility="collapsed", placeholder="[공지] 사과드립니다...")
+        # 3. 주의 사항 (결과가 있을 때만 표시)
+        if has_result:
+            st.write("")
+            st.info("ℹ️ **Notice:** AI의 평가와 제안은 참고용일 뿐 정답이 아닙니다. 실제 업무 적용 시에는 회사의 톤앤매너와 내부 규정에 따라 달라질 수 있으므로, 반드시 동료 및 유관부서와 논의하시기 바랍니다.")
             
-            # 버튼 2개 배치
-            col_submit, col_giveup = st.columns(2)
-            with col_submit:
-                submit = st.form_submit_button("결재 및 미래 예측 (SIMULATE)", type="primary", use_container_width=True)
-            with col_giveup:
-                # [추가] 사표 쓰고 탈주하기 버튼
-                give_up = st.form_submit_button("🏃‍♂️ 망했다...! 사표 쓰고 탈주하기 (멘토 찬스)", use_container_width=True)
-            
-        if st.button("🔄 초기화", use_container_width=True):
-            st.session_state.scenario_data = {}
-            st.session_state.evaluation_result = None
-            st.session_state.mentor_solution = None
-            st.rerun()
-            
-        # [로직 1] 정상 제출
+        # ----------------------------------------------------
+        # 로직 처리 (폼 제출 시 처리)
+        # ----------------------------------------------------
         if submit:
             if not api_key: st.error("키 없음")
             elif not action or not notice: st.warning("내용 입력 필요")
@@ -298,7 +298,7 @@ else:
                     sys_msg = (
                         "너는 게임 운영의 신이자, 친절한 멘토다. CM(사용자)의 대응을 평가해라. "
                         "**[말투 가이드]**\n"
-                        "- 딱딱한 보고서체(~함, ~임) 금지. **부드럽고 정중한 해요체(~입니다, ~하셨군요)** 사용.\n"
+                        "- 딱딱한 보고서체 금지. **부드럽고 정중한 해요체(~입니다, ~하셨군요)** 사용.\n"
                         "- 사용자를 격려하면서도, 고쳐야 할 점은 명확하게 지적.\n\n"
                         "**[출력 형식]**\n"
                         "[[점수: 0~100]]\n[[리스크: 0~100]]\n\n"
@@ -315,21 +315,19 @@ else:
                     """
                     text = clean_ai_response(call_ai_brain(provider, api_key, sys_msg, user_msg, temperature=current_temp))
                     st.session_state.evaluation_result = {"text": text}
-                    st.session_state.mentor_solution = None # 멘토 답안은 숨김
-
-                    # [수정] 로그 저장 시 전체 데이터 포함
+                    st.session_state.mentor_solution = None
+                    
                     st.session_state.history.append({
                         "Genre": st.session_state.scenario_data['genre'],
                         "Score": parse_eval_score(text),
                         "Risk": parse_risk_score(text),
-                        "Crisis": st.session_state.scenario_data['public'], # 전체 내용
-                        "User_Action": action, # 내 조치
-                        "User_Notice": notice, # 내 공지
+                        "Crisis": st.session_state.scenario_data['public'],
+                        "User_Action": action,
+                        "User_Notice": notice,
                         "Feedback": text
                     })
-                    st.rerun()
+                    st.rerun() # 결과 표시를 위해 리런
 
-        # [로직 2] 탈주하기 (멘토 찬스)
         if give_up:
             if not api_key: st.error("키 없음")
             else:
@@ -348,4 +346,5 @@ else:
                     """
                     sol_text = clean_ai_response(call_ai_brain(provider, api_key, sys_msg, user_msg, temperature=0.5))
                     st.session_state.mentor_solution = sol_text
-                    st.rerun()
+                    st.session_state.evaluation_result = None
+                    st.rerun() # 결과 표시를 위해 리런
